@@ -137,6 +137,7 @@ function getCurrentAppState() {
     creditSales,
     quotations,
     catalogs,
+    registerStartAt: localStorage.getItem("registerStartAt") || null,
   }
 }
 
@@ -148,6 +149,7 @@ function applyAppState(state) {
   if (Array.isArray(state.creditSales)) creditSales = state.creditSales
   if (Array.isArray(state.quotations)) quotations = state.quotations
   if (state.catalogs && typeof state.catalogs === "object") catalogs = normalizeCatalogs(state.catalogs)
+  if (state.registerStartAt) localStorage.setItem("registerStartAt", state.registerStartAt)
 }
 
 async function loadFromApi() {
@@ -221,6 +223,7 @@ function exportData() {
     creditSales: creditSales,
     quotations: quotations,
     catalogs: catalogs,
+    registerStartAt: localStorage.getItem("registerStartAt") || null,
     exportDate: new Date().toISOString(),
     version: "1.0",
   }
@@ -246,6 +249,7 @@ function importData(file) {
       if (data.creditSales) creditSales = data.creditSales
       if (data.quotations) quotations = data.quotations
       if (data.catalogs) catalogs = normalizeCatalogs(data.catalogs)
+      if (data.registerStartAt) localStorage.setItem("registerStartAt", data.registerStartAt)
       saveToStorage()
       alert("Datos importados exitosamente")
       location.reload()
@@ -424,17 +428,32 @@ function switchModule(module) {
   }
 }
 
+function getRegisterStartAt() {
+  const storedStart = localStorage.getItem("registerStartAt")
+  if (storedStart) return new Date(storedStart)
+
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  return todayStart
+}
+
+function getOpenRegisterSales() {
+  const registerStartAt = getRegisterStartAt()
+  return sales.filter((sale) => new Date(sale.date) >= registerStartAt)
+}
+
 // Dashboard
 function loadDashboard() {
-  const dailySales = sales.reduce((sum, sale) => sum + sale.total, 0)
-  const dailyTransactions = sales.length
-  const dailyProfit = sales.reduce((sum, sale) => {
+  const registerSales = getOpenRegisterSales()
+  const dailySales = registerSales.reduce((sum, sale) => sum + sale.total, 0)
+  const dailyTransactions = registerSales.length
+  const dailyProfit = registerSales.reduce((sum, sale) => {
     return (
       sum +
       sale.items.reduce((itemSum, item) => {
         const product = products.find((p) => p.code === item.code)
         if (product) {
-          return itemSum + (item.price - product.pricePurchase) * item.quantity
+          return itemSum + (item.price - Number(product.pricePurchase || 0)) * item.quantity
         }
         return itemSum
       }, 0)
@@ -1394,7 +1413,7 @@ function editProduct(code) {
   document.getElementById("product-stock").value = product.stock
   document.getElementById("product-min-stock").value = product.minStock || 5 // Populate minStock field
   document.getElementById("product-price-sale").value = product.priceSale
-  document.getElementById("product-price-purchase").value = product.pricePurchase
+  document.getElementById("product-price-purchase").value = product.pricePurchase || ""
   document.getElementById("product-tax-rate").value = String(product.taxRate ?? 0.19)
   document.getElementById("product-location").value = product.location
   document.getElementById("product-unit").value = product.unit
@@ -1447,7 +1466,7 @@ document.getElementById("product-form").addEventListener("submit", async (e) => 
     stock: Number.parseInt(document.getElementById("product-stock").value),
     minStock: Number.parseInt(document.getElementById("product-min-stock").value), // Added minStock field
     priceSale: Number.parseFloat(document.getElementById("product-price-sale").value),
-    pricePurchase: Number.parseFloat(document.getElementById("product-price-purchase").value),
+    pricePurchase: Number.parseFloat(document.getElementById("product-price-purchase").value) || 0,
     taxRate: Number.parseFloat(document.getElementById("product-tax-rate").value),
     location: document.getElementById("product-location").value,
     unit: document.getElementById("product-unit").value,
@@ -1817,11 +1836,7 @@ function showDianSummary() {
 
 // Cierre de Caja
 function loadCloseRegister() {
-  const todaySales = sales.filter((sale) => {
-    const saleDate = new Date(sale.date)
-    const today = new Date()
-    return saleDate.toDateString() === today.toDateString()
-  })
+  const todaySales = getOpenRegisterSales()
 
   const cashTotal = todaySales.filter((s) => s.paymentMethod === "cash").reduce((sum, s) => sum + s.total, 0)
   const cardTotal = todaySales
@@ -1851,15 +1866,11 @@ function loadCloseRegister() {
 }
 
 function getTodaySales() {
-  return sales.filter((sale) => {
-    const saleDate = new Date(sale.date)
-    const today = new Date()
-    return saleDate.toDateString() === today.toDateString()
-  })
+  return getOpenRegisterSales()
 }
 
 function printCloseRegisterReport(closeData) {
-  const todaySales = getTodaySales()
+  const todaySales = closeData.salesSnapshot || getTodaySales()
   const initialBalance = Number.parseFloat(localStorage.getItem("initialBalance")) || 0
   const cashSales = todaySales.filter((s) => s.paymentMethod === "cash").reduce((sum, s) => sum + Number(s.total || 0), 0)
   const cardSales = todaySales
@@ -2135,6 +2146,7 @@ function closeRegister() {
   const notes = document.getElementById("close-notes").value
   const cashExpected = Number.parseFloat(document.getElementById("close-cash-total").textContent)
   const difference = actualCash - cashExpected
+  const salesSnapshot = getOpenRegisterSales()
 
   if (
     confirm(
@@ -2148,6 +2160,7 @@ function closeRegister() {
       difference: difference,
       notes: notes,
       dayTotal: Number.parseFloat(document.getElementById("close-day-total").textContent),
+      salesSnapshot: salesSnapshot,
     }
 
     const closures = JSON.parse(localStorage.getItem("closures")) || []
@@ -2156,6 +2169,8 @@ function closeRegister() {
 
     exportData()
     printCloseRegisterReport(closeData)
+    localStorage.setItem("registerStartAt", new Date().toISOString())
+    saveToStorage()
 
     alert("Caja cerrada correctamente. Se exportaron los datos y se generó el reporte imprimible.")
 
