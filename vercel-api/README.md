@@ -8,10 +8,10 @@ Configura estas variables en el proyecto de Vercel:
 
 ```text
 DATABASE_URL=postgresql://...
-ALLOWED_ORIGIN=https://tu-usuario.github.io
+ALLOWED_ORIGIN=https://cristian-60302.github.io
 ```
 
-`DATABASE_URL` sale del panel de Neon. `ALLOWED_ORIGIN` debe ser la URL de GitHub Pages donde publiques el frontend. Para pruebas puedes usar `*`.
+`DATABASE_URL` sale del panel de Neon. Para este proyecto, usa en Vercel la connection string de Neon como `DATABASE_URL`, sin pegarla en ningun archivo del frontend. `ALLOWED_ORIGIN` debe ser la URL base de GitHub Pages. Para pruebas puedes usar `*`.
 
 ## Despliegue
 
@@ -30,7 +30,7 @@ Ejemplo:
 
 ```js
 window.APP_CONFIG = {
-  API_BASE_URL: "https://appinventario-api.vercel.app",
+  API_BASE_URL: "https://tu-api-de-vercel.vercel.app",
 }
 ```
 
