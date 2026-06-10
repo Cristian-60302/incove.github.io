@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INCOVE - Sistema de Inventario</title>
+    <link rel="icon" href="image/logo.ico">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Login Section -->
+    <div id="login-section" class="section active">
+        <div class="login-container">
+            <div class="login-box">
+                <div class="login-header">
+                    <div class="logo-icon">🔧</div>
+                    <h1>INCOVE</h1>
+                    <p>Ingeniería y Construcciones Venecia</p>
+                </div>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label>Usuario</label>
+                        <input type="text" id="username" placeholder="Ingrese su usuario" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Contraseña</label>
+                        <input type="password" id="password" placeholder="Ingrese su contraseña" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-large">
+                        <span>🔓</span>
+                        Ingresar al Sistema
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Initial Balance Modal -->
+    <div id="initial-balance-modal" class="modal">
+        <div class="modal-content modal-centered">
+            <h2>⚙️ Configuración Inicial de Caja</h2>
+            <p class="modal-subtitle">Configure el saldo inicial antes de comenzar las operaciones</p>
+            
+            <div class="form-group">
+                <label>Saldo Base de Caja (Efectivo Inicial)</label>
+                <input type="number" id="initial-balance" placeholder="0.00" step="0.01" min="0" class="input-large">
+                <small>Ingrese el monto de efectivo con el que inicia la caja</small>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <div class="import-section">
+                <h4>📥 Importar Datos</h4>
+                <p>¿Deseas importar datos de una sesión anterior?</p>
+                <input type="file" id="import-file-initial" accept=".json" onchange="importDataOnStartup(event)" style="display:none">
+                <button class="btn btn-secondary btn-large" onclick="document.getElementById('import-file-initial').click()">
+                    <span>📂</span>
+                    Importar Datos Anteriores
+                </button>
+                <div id="import-status" class="import-status"></div>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <button class="btn btn-primary btn-large btn-start" onclick="startSession()">
+                <span>🚀</span>
+                Iniciar Jornada
+            </button>
+        </div>
+    </div>
+
+    <!-- Main App Section -->
+    <div id="app-section" class="section">
+        <nav class="navbar">
+            <div class="navbar-brand">🔧 INCOVE</div>
+            <div class="navbar-menu">
+                <button class="nav-btn active" data-module="dashboard">Dashboard</button>
+                <button class="nav-btn" data-module="pos">Punto de Venta</button>
+                <button class="nav-btn" data-module="inventory">Inventario</button>
+                <button class="nav-btn" data-module="clients">Clientes</button>
+                <button class="nav-btn" data-module="quotes">Cotización</button>
+                <!-- Added credit sales button -->
+                <button class="nav-btn" data-module="credits">Fiados por Cobrar</button>
+                <button class="nav-btn" data-module="reports">Reportes</button>
+                <button class="nav-btn" data-module="close-register">Cierre de Caja</button>
+            </div>
+            <div class="navbar-user">
+                <span id="user-name">Admin</span>
+                <button class="btn-logout" onclick="logout()">Cerrar Sesión</button>
+            </div>
+        </nav>
+
+        <div class="container">
+            <!-- Dashboard Module -->
+            <div id="dashboard-module" class="module active">
+                <div class="container">
+                    <h2>Dashboard</h2>
+                    <div class="dashboard-grid">
+                        <div class="card card-summary">
+                            <h3>Resumen del Día</h3>
+                            <div class="summary-item">
+                                <span class="label">Venta Total:</span>
+                                <span class="value">$<span id="daily-sales">0.00</span></span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">Transacciones:</span>
+                                <span class="value"><span id="daily-transactions">0</span></span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">Ganancia Estimada:</span>
+                                <span class="value">$<span id="daily-profit">0.00</span></span>
+                            </div>
+                        </div>
+
+                        <div class="card card-alerts">
+                            <h3>Alertas de Inventario</h3>
+                            <div class="alert-badge" id="low-stock-badge">0</div>
+                            <div id="alerts-list">
+                                <p class="no-alerts">Sin alertas en este momento</p>
+                            </div>
+                            <!-- Added button to show all alerts -->
+                            <button id="show-all-alerts-btn" class="btn btn-secondary" onclick="toggleAllAlerts()" style="display: none; width: 100%; margin-top: 0.5rem;">
+                                Mostrar Todas
+                            </button>
+                        </div>
+
+                        <div class="card card-shortcuts">
+                            <h3>Accesos Rápidos</h3>
+                            <div class="shortcuts-grid">
+                                <button class="shortcut-btn" onclick="switchModule('pos')">
+                                    <span class="icon">🛒</span>
+                                    <span>Punto de Venta</span>
+                                </button>
+                                <button class="shortcut-btn" onclick="switchModule('inventory')">
+                                    <span class="icon">📦</span>
+                                    <span>Inventario</span>
+                                </button>
+                                <button class="shortcut-btn" onclick="switchModule('clients')">
+                                    <span class="icon">👥</span>
+                                    <span>Clientes</span>
+                                </button>
+                                <button class="shortcut-btn" onclick="switchModule('credits')">
+                                    <span class="icon">📜</span>
+                                    <span>Fiados por Cobrar</span>
+                                </button>
+                                <button class="shortcut-btn" onclick="switchModule('quotes')">
+                                    <span class="icon">🧾</span>
+                                    <span>Cotización</span>
+                                </button>
+                                <button class="shortcut-btn" onclick="switchModule('close-register')">
+                                    <span class="icon">💰</span>
+                                    <span>Cierre de Caja</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Added data backup/restore card -->
+                        <div class="card card-backup">
+                            <h3>Respaldo de Datos</h3>
+                            <p class="backup-info">Exporta e importa tus datos para transferirlos entre computadoras</p>
+                            <div class="backup-buttons">
+                                <button class="btn btn-primary" onclick="exportData()">
+                                    <span>⬇️ Exportar Datos</span>
+                                </button>
+                                <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()">
+                                    <span>⬆️ Importar Datos</span>
+                                </button>
+                                <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importData(event)">
+                            </div>
+                        </div>
+
+                        <div class="card card-chart">
+                            <h3>Productos Más Vendidos</h3>
+                            <div id="chart-container">
+                                <canvas id="sales-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- POS Module -->
+            <div id="pos-module" class="module">
+                <div class="container">
+                    <h2>Punto de Venta</h2>
+                    <div class="pos-layout">
+                        <div class="pos-left">
+                            <div class="pos-tabs">
+                                <button class="sale-tab active" id="sale-tab-1" onclick="switchSaleTab(1)">Venta 1</button>
+                                <button class="sale-tab" id="sale-tab-2" onclick="switchSaleTab(2)">Venta 2</button>
+                            </div>
+
+                            <div class="search-section barcode-row">
+                                <input type="text" id="product-search" placeholder="Buscar producto por nombre o código..." class="search-input">
+                                <button class="btn btn-secondary" onclick="scanBarcodeForSale()">Escanear</button>
+                                <div id="search-results" class="search-results"></div>
+                            </div>
+
+                            <div class="cart-section">
+                                <h3>Lista de Compra</h3>
+                                <table class="cart-table" id="cart-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th>Precio</th>
+                                            <th>Cant.</th>
+                                            <th>Subtotal</th>
+                                            <th>Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cart-items">
+                                        <tr class="empty-cart">
+                                            <td colspan="5">No hay productos en el carrito</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="pos-right">
+                            <div class="client-section">
+                                <label>Cliente (opcional):</label>
+                                <select id="client-select">
+                                    <option value="">Cliente General</option>
+                                </select>
+                            </div>
+
+                            <div class="totals-section">
+                                <div class="total-line">
+                                    <span>Subtotal:</span>
+                                    <span>$<span id="cart-subtotal">0.00</span></span>
+                                </div>
+                                <!-- Changed tax to 19% (informational only) -->
+                                <div class="total-line" style="color: #666; font-size: 0.9rem;">
+                                    <span>IVA (19%):</span>
+                                    <span>$<span id="cart-tax">0.00</span></span>
+                                </div>
+                                <div class="total-line total-final">
+                                    <span>TOTAL:</span>
+                                    <span>$<span id="cart-total">0.00</span></span>
+                                </div>
+                            </div>
+
+                            <div class="payment-section">
+                                <h3>Pago</h3>
+                                <div class="form-group">
+                                    <label>Método de Pago:</label>
+                                    <select id="payment-method">
+                                        <option value="cash">Efectivo</option>
+                                        <option value="card">Tarjeta</option>
+                                        <option value="transfer">Transferencia</option>
+                                        <option value="nequi">Nequi</option>
+                                        <option value="debit">Tarjeta Débito</option>
+                                        <option value="credit_card">Tarjeta Crédito</option>
+                                        <option value="fiado">Fiar</option>
+                                    </select>
+                                </div>
+                                <!-- Added quick payment buttons -->
+                                <div class="form-group" id="amount-paid-group">
+                                    <label>Monto Pagado:</label>
+                                    <div class="quick-amounts" id="quick-amounts">
+                                        <button class="quick-amount-btn" onclick="setQuickAmount('exact')">Completo</button>
+                                        <button class="quick-amount-btn" onclick="setQuickAmount(5000)">$5,000</button>
+                                        <button class="quick-amount-btn" onclick="setQuickAmount(10000)">$10,000</button>
+                                        <button class="quick-amount-btn" onclick="setQuickAmount(20000)">$20,000</button>
+                                        <button class="quick-amount-btn" onclick="setQuickAmount(50000)">$50,000</button>
+                                        <button class="quick-amount-btn" onclick="setQuickAmount(100000)">$100,000</button>
+                                    </div>
+                                    <input type="number" id="amount-paid" step="0.01" placeholder="0.00">
+                                </div>
+                                <div class="change-display" id="change-display">
+                                    <span>Cambio:</span>
+                                    <span class="change-amount">$<span id="change-amount">0.00</span></span>
+                                </div>
+                            </div>
+
+                            <!-- Added invoice printing option -->
+                            <div class="invoice-section">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="print-invoice" onchange="toggleInvoiceFields()">
+                                    <span>Imprimir Factura</span>
+                                </label>
+                                <div id="invoice-fields" style="display: none; margin-top: 1rem;">
+                                    <div class="form-group">
+                                        <label>Nombre del Cliente *</label>
+                                        <input type="text" id="invoice-name" placeholder="Nombre completo">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Dirección (Opcional)</label>
+                                        <input type="text" id="invoice-address" placeholder="Dirección">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Ciudad (Opcional)</label>
+                                        <input type="text" id="invoice-city" placeholder="Ciudad">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-success btn-large" onclick="completeSale()">Cerrar Venta Actual</button>
+                            <button class="btn btn-secondary" onclick="clearCart()">Limpiar Carrito</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory Module -->
+            <div id="inventory-module" class="module">
+                <div class="container">
+                    <h2>Gestión de Inventario</h2>
+                    <div class="inventory-controls">
+                        <button class="btn btn-primary" onclick="showAddProductModal()">➕ Agregar Producto</button>
+                        <input type="text" id="inventory-search" placeholder="Buscar productos..." class="search-input">
+                        <select id="category-filter">
+                            <option value="">Todas las Categorías</option>
+                        </select>
+                    </div>
+
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Foto</th>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Categoría</th>
+                                <th>Stock</th>
+                                <!-- Added min stock column -->
+                                <th>Stock Mínimo</th>
+                                <th>Precio Venta</th>
+                                <th>Precio Compra</th>
+                                <th>Ubicación</th>
+                                <th>Proveedor</th>
+                                <th>Reponer</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-table-body">
+                            <!-- Productos se cargarán dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Clients Module -->
+            <div id="clients-module" class="module">
+                <div class="container">
+                    <h2>Gestión de Clientes</h2>
+                    <div class="inventory-controls">
+                        <button class="btn btn-primary" onclick="showAddClientModal()">➕ Agregar Cliente</button>
+                        <input type="text" id="client-search" placeholder="Buscar clientes..." class="search-input">
+                    </div>
+
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Teléfono</th>
+                                <th>Email</th>
+                                <th>Dirección</th>
+                                <th>Total Compras</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clients-table-body">
+                            <!-- Clientes se cargarán dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Quotes Module -->
+            <div id="quotes-module" class="module">
+                <div class="container">
+                    <h2>Cotización</h2>
+                    <div class="card">
+                        <h3>Datos del Cliente</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Nombre y apellido *</label>
+                                <input type="text" id="quote-client-name" placeholder="Nombre completo">
+                            </div>
+                            <div class="form-group">
+                                <label>Celular *</label>
+                                <input type="tel" id="quote-client-phone" placeholder="Número celular">
+                            </div>
+                            <div class="form-group">
+                                <label>Validez</label>
+                                <input type="date" id="quote-valid-until">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>Productos</h3>
+                        <div class="form-grid">
+                            <div class="form-group" style="position: relative;">
+                                <label>Buscar producto</label>
+                                <input type="text" id="quote-product-search" placeholder="Código o nombre del producto">
+                                <div id="quote-search-results" class="search-results"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>Cantidad</label>
+                                <input type="number" id="quote-quantity" min="0.01" step="0.01" value="1">
+                            </div>
+                            <div class="form-group" style="display: flex; align-items: flex-end;">
+                                <button class="btn btn-primary" onclick="addToQuoteCart()">Agregar</button>
+                            </div>
+                        </div>
+                        <div id="quote-products-list"></div>
+                        <div class="total-section">
+                            <h3>Total cotizado: $<span id="quote-total">0.00</span></h3>
+                            <button class="btn btn-success" onclick="saveAndPrintQuote()">Guardar e imprimir cotización</button>
+                            <button class="btn btn-secondary" onclick="clearQuoteCart()">Limpiar cotización</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Credits Module -->
+            <div id="credits-module" class="module">
+                <h2>Fiados por Cobrar</h2>
+                
+                <div class="card">
+                    <h3>Registrar Nuevo Fiado</h3>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Tipo de cliente *</label>
+                            <select id="credit-client-mode" onchange="toggleCreditClientMode()">
+                                <option value="existing">Cliente registrado</option>
+                                <option value="new">Cliente nuevo</option>
+                            </select>
+                        </div>
+                        <div class="form-group credit-existing-client">
+                            <label>Cliente registrado *</label>
+                            <select id="credit-client-select" required>
+                                <option value="">Seleccionar cliente</option>
+                            </select>
+                        </div>
+                        <div class="form-group credit-new-client" style="display: none;">
+                            <label>Nombre y apellido *</label>
+                            <input type="text" id="credit-new-client-name" placeholder="Nombre completo">
+                        </div>
+                        <div class="form-group credit-new-client" style="display: none;">
+                            <label>Celular *</label>
+                            <input type="tel" id="credit-new-client-phone" placeholder="Número celular">
+                        </div>
+                        <div class="form-group credit-new-client" style="display: none;">
+                            <label>Dirección</label>
+                            <input type="text" id="credit-new-client-address" placeholder="Dirección opcional">
+                        </div>
+                    </div>
+
+                    <h4>Productos</h4>
+                    <div class="form-grid">
+                        <div class="form-group" style="position: relative;">
+                            <label>Buscar Producto</label>
+                            <input type="text" id="credit-product-search" placeholder="Código o nombre del producto">
+                            <div id="credit-search-results" class="search-results"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Cantidad</label>
+                            <input type="number" id="credit-quantity" min="1" value="1" step="0.01">
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: flex-end;">
+                            <button class="btn btn-add" onclick="addToCreditCart()">
+                                <span>➕</span> Agregar
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="credit-products-list"></div>
+
+                    <div class="total-section">
+                        <h3 style="color: #dc2626; font-size: 1.8rem;">Total fiado: $<span id="credit-total">0.00</span></h3>
+                        <button class="btn btn-success" onclick="completeCreditSale()">
+                            <span>💾</span> Registrar Fiado
+                        </button>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card" style="border-left: 4px solid #dc2626;">
+                        <h4>Créditos Pendientes</h4>
+                        <p class="stat-number" id="pending-credits-count">0</p>
+                    </div>
+                    <div class="stat-card" style="border-left: 4px solid #16a34a;">
+                        <h4>Total por Cobrar</h4>
+                        <p class="stat-number" id="pending-credits-total">$0.00</p>
+                    </div>
+                    <div class="stat-card" style="border-left: 4px solid #2563eb;">
+                        <h4>Créditos Pagados (Hoy)</h4>
+                        <p class="stat-number" id="paid-credits-today">0</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Lista de Fiados por Cobrar</h3>
+                    
+                    <div style="margin-bottom: 1rem;">
+                        <label>Filtrar por estado:</label>
+                        <select id="credit-filter" onchange="filterCredits()">
+                            <option value="all">Todos</option>
+                            <option value="pending">Pendientes</option>
+                            <option value="paid">Pagados</option>
+                        </select>
+                    </div>
+
+                    <div id="credits-list"></div>
+                </div>
+            </div>
+
+            <!-- Reports Module -->
+            <div id="reports-module" class="module">
+                <div class="container">
+                    <h2>Reportes</h2>
+                    <div class="reports-grid">
+                        <div class="card">
+                            <h3>Reporte de Ventas</h3>
+                            <div class="form-group">
+                                <label>Fecha Inicio:</label>
+                                <input type="date" id="report-start-date">
+                            </div>
+                            <div class="form-group">
+                                <label>Fecha Fin:</label>
+                                <input type="date" id="report-end-date">
+                            </div>
+                            <button class="btn btn-primary" onclick="generateSalesReport()">Generar Reporte</button>
+                            <button class="btn btn-secondary" onclick="exportSalesToExcel()">Exportar Ventas Excel</button>
+                            <button class="btn btn-secondary" onclick="showDianSummary()">Posible pago a la DIAN</button>
+                        </div>
+
+                        <div class="card">
+                            <h3>Productos Más Vendidos</h3>
+                            <div id="top-products-list"></div>
+                        </div>
+
+                        <div class="card">
+                            <h3>Inventario Bajo</h3>
+                            <div id="low-stock-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Close Register Module -->
+            <div id="close-register-module" class="module">
+                <div class="container">
+                    <h2>Cierre de Caja</h2>
+                    <div class="close-register-layout">
+                        <div class="card">
+                            <h3>Resumen del Día</h3>
+                            <div class="summary-item">
+                                <span class="label">Total en Efectivo:</span>
+                                <span class="value">$<span id="close-cash-total">0.00</span></span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">Total en Tarjeta:</span>
+                                <span class="value">$<span id="close-card-total">0.00</span></span>
+                            </div>
+                    <div class="summary-item">
+                        <span class="label">Total en Transferencia:</span>
+                        <span class="value">$<span id="close-transfer-total">0.00</span></span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">Total en Nequi:</span>
+                        <span class="value">$<span id="close-nequi-total">0.00</span></span>
+                    </div>
+                            <div class="summary-item total-final">
+                                <span class="label">TOTAL DEL DÍA:</span>
+                                <span class="value">$<span id="close-day-total">0.00</span></span>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h3>Conteo de Efectivo</h3>
+                            <div class="form-group">
+                                <label>Efectivo Real en Caja:</label>
+                                <input type="number" id="actual-cash" step="0.01" placeholder="0.00">
+                            </div>
+                            <div class="difference-display">
+                                <span>Diferencia:</span>
+                                <span id="cash-difference">$0.00</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Notas:</label>
+                                <textarea id="close-notes" rows="4" placeholder="Notas del cierre..."></textarea>
+                            </div>
+                            <button class="btn btn-success btn-large" onclick="closeRegister()">Cerrar Caja</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para agregar/editar producto -->
+    <div id="product-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeProductModal()">&times;</span>
+            <h2 id="product-modal-title">Agregar Producto</h2>
+            <form id="product-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Código:</label>
+                        <div class="inline-action">
+                            <input type="text" id="product-code" required>
+                            <button type="button" class="btn btn-secondary" onclick="scanBarcodeForProduct()">Escanear</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Nombre:</label>
+                        <input type="text" id="product-name" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Categoría:</label>
+                        <input type="text" id="product-category">
+                    </div>
+                    <div class="form-group">
+                        <label>Stock:</label>
+                        <input type="number" id="product-stock" required>
+                    </div>
+                </div>
+                <!-- Added min stock field -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Stock Mínimo:</label>
+                        <input type="number" id="product-min-stock" value="5" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Unidad de Medida:</label>
+                        <input type="text" id="product-unit" placeholder="ej: pza, kg, m">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Precio Venta:</label>
+                        <input type="number" step="0.01" id="product-price-sale" required>
+                        <small>Precio final con IVA incluido.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Precio Compra:</label>
+                        <input type="number" step="0.01" id="product-price-purchase" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>IVA:</label>
+                        <select id="product-tax-rate">
+                            <option value="0.19">19%</option>
+                            <option value="0.05">5%</option>
+                            <option value="0">Exento / No aplica</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Foto del producto:</label>
+                        <input type="file" id="product-image" accept="image/*" capture="environment">
+                    </div>
+                </div>
+                <div class="product-photo-preview" id="product-photo-preview"></div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Ubicación:</label>
+                        <input type="text" id="product-location">
+                    </div>
+                    <div class="form-group">
+                        <label>Proveedor:</label>
+                        <input type="text" id="product-supplier">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Descripción:</label>
+                    <textarea id="product-description" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para agregar/editar cliente -->
+    <div id="client-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeClientModal()">&times;</span>
+            <h2 id="client-modal-title">Agregar Cliente</h2>
+            <form id="client-form">
+                <div class="form-group">
+                    <label>Nombre:</label>
+                    <input type="text" id="client-name" required>
+                </div>
+                <div class="form-group">
+                    <label>Teléfono:</label>
+                    <input type="tel" id="client-phone">
+                </div>
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" id="client-email">
+                </div>
+                <div class="form-group">
+                    <label>Dirección:</label>
+                    <textarea id="client-address" rows="2"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
