@@ -1,6 +1,6 @@
-const RESET_VERSION = "incove-empty-inventory-2026-06"
+const RESET_VERSION = "incove-catalogs-empty-inventory-2026-06"
 if (localStorage.getItem("appInventoryResetVersion") !== RESET_VERSION) {
-  ;["products", "clients", "sales", "creditSales", "quotations"].forEach((key) => localStorage.removeItem(key))
+  ;["products", "clients", "sales", "creditSales", "quotations", "catalogs"].forEach((key) => localStorage.removeItem(key))
   localStorage.setItem("appInventoryResetVersion", RESET_VERSION)
 }
 
@@ -112,6 +112,12 @@ let clients = JSON.parse(localStorage.getItem("clients")) || []
 let sales = JSON.parse(localStorage.getItem("sales")) || []
 let creditSales = JSON.parse(localStorage.getItem("creditSales")) || []
 let quotations = JSON.parse(localStorage.getItem("quotations")) || []
+let catalogs = JSON.parse(localStorage.getItem("catalogs")) || {
+  categories: ["Construcción", "Herramientas", "Pinturas", "Eléctrico", "Plomería", "Ferretería general"],
+  units: ["Unidad", "Kilogramo", "Libra", "Metro", "Metro cuadrado", "Litro", "Galón", "Bulto", "Caja"],
+  locations: ["Bodega", "Mostrador", "Estantería A", "Estantería B", "Patio", "Vitrina"],
+  suppliers: [],
+}
 let saleCarts = JSON.parse(sessionStorage.getItem("saleCarts")) || { 1: [], 2: [] }
 let activeSaleTab = Number(sessionStorage.getItem("activeSaleTab")) || 1
 let cart = saleCarts[activeSaleTab] || []
@@ -130,6 +136,7 @@ function getCurrentAppState() {
     sales,
     creditSales,
     quotations,
+    catalogs,
   }
 }
 
@@ -140,6 +147,7 @@ function applyAppState(state) {
   if (Array.isArray(state.sales)) sales = state.sales
   if (Array.isArray(state.creditSales)) creditSales = state.creditSales
   if (Array.isArray(state.quotations)) quotations = state.quotations
+  if (state.catalogs && typeof state.catalogs === "object") catalogs = normalizeCatalogs(state.catalogs)
 }
 
 async function loadFromApi() {
@@ -157,6 +165,7 @@ async function loadFromApi() {
       localStorage.setItem("sales", JSON.stringify(sales))
       localStorage.setItem("creditSales", JSON.stringify(creditSales))
       localStorage.setItem("quotations", JSON.stringify(quotations))
+      localStorage.setItem("catalogs", JSON.stringify(catalogs))
       console.log("[api] Datos cargados desde Neon")
     }
   } catch (error) {
@@ -193,6 +202,7 @@ function saveToStorage() {
   localStorage.setItem("sales", JSON.stringify(sales))
   localStorage.setItem("creditSales", JSON.stringify(creditSales))
   localStorage.setItem("quotations", JSON.stringify(quotations))
+  localStorage.setItem("catalogs", JSON.stringify(catalogs))
   sessionStorage.setItem("cart", JSON.stringify(cart))
   sessionStorage.setItem("saleCarts", JSON.stringify(saleCarts))
   sessionStorage.setItem("activeSaleTab", activeSaleTab.toString())
@@ -210,6 +220,7 @@ function exportData() {
     sales: sales,
     creditSales: creditSales,
     quotations: quotations,
+    catalogs: catalogs,
     exportDate: new Date().toISOString(),
     version: "1.0",
   }
@@ -234,6 +245,7 @@ function importData(file) {
       if (data.sales) sales = data.sales
       if (data.creditSales) creditSales = data.creditSales
       if (data.quotations) quotations = data.quotations
+      if (data.catalogs) catalogs = normalizeCatalogs(data.catalogs)
       saveToStorage()
       alert("Datos importados exitosamente")
       location.reload()
@@ -281,10 +293,11 @@ document.getElementById("login-form").addEventListener("submit", (e) => {
 })
 
 function confirmInitialBalance() {
-  const initialBalance = Number.parseFloat(document.getElementById("initial-balance").value)
+  const rawInitialBalance = document.getElementById("initial-balance").value
+  const initialBalance = rawInitialBalance === "" ? 0 : Number.parseFloat(rawInitialBalance)
 
-  if (!initialBalance || initialBalance < 0) {
-    alert("Por favor ingresa un saldo inicial válido")
+  if (Number.isNaN(initialBalance) || initialBalance < 0) {
+    alert("El saldo inicial no puede ser negativo")
     return
   }
 
@@ -311,10 +324,13 @@ function importDataOnStartup(event) {
     try {
       const data = JSON.parse(e.target.result)
 
-      if (data.products && data.clients && data.sales) {
-        products = data.products
-        clients = data.clients
-        sales = data.sales
+      if (data.products || data.clients || data.sales || data.creditSales || data.quotations || data.catalogs) {
+        if (data.products) products = data.products
+        if (data.clients) clients = data.clients
+        if (data.sales) sales = data.sales
+        if (data.creditSales) creditSales = data.creditSales
+        if (data.quotations) quotations = data.quotations
+        if (data.catalogs) catalogs = normalizeCatalogs(data.catalogs)
 
         saveToStorage()
 
@@ -1211,7 +1227,8 @@ function renderInventoryTable() {
 }
 
 function loadCategoryFilter() {
-  const categories = [...new Set(products.map((p) => p.category))]
+  seedCatalogsFromProducts()
+  const categories = [...new Set([...(catalogs.categories || []), ...products.map((p) => p.category)].filter(Boolean))]
   const select = document.getElementById("category-filter")
   select.innerHTML =
     '<option value="">Todas las Categorías</option>' +
@@ -1238,11 +1255,126 @@ function filterInventory() {
   tbody.innerHTML = filtered.map(productRowHtml).join("")
 }
 
+function normalizeCatalogs(source) {
+  const defaults = {
+    categories: [],
+    units: [],
+    locations: [],
+    suppliers: [],
+  }
+  const normalized = { ...defaults, ...source }
+  normalized.categories = [...new Set((normalized.categories || []).filter(Boolean))]
+  normalized.units = [...new Set((normalized.units || []).filter(Boolean))]
+  normalized.locations = [...new Set((normalized.locations || []).filter(Boolean))]
+  normalized.suppliers = (normalized.suppliers || []).map((supplier) =>
+    typeof supplier === "string" ? { name: supplier, nit: "", phone: "", contact: "" } : supplier,
+  )
+  return normalized
+}
+
+function seedCatalogsFromProducts() {
+  products.forEach((product) => {
+    addCatalogValue("categories", product.category, false)
+    addCatalogValue("units", product.unit, false)
+    addCatalogValue("locations", product.location, false)
+    addCatalogValue("suppliers", product.supplier, false)
+  })
+}
+
+function getCatalogLabel(type, item) {
+  if (!item) return ""
+  return type === "suppliers" && typeof item === "object" ? item.name : item
+}
+
+function addCatalogValue(type, value, persist = true) {
+  if (!value) return ""
+  catalogs = normalizeCatalogs(catalogs)
+
+  if (type === "suppliers") {
+    const supplier = typeof value === "object" ? value : { name: value, nit: "", phone: "", contact: "" }
+    const exists = catalogs.suppliers.some((item) => item.name.toLowerCase() === supplier.name.toLowerCase())
+    if (!exists) catalogs.suppliers.push(supplier)
+    if (persist) saveToStorage()
+    return supplier.name
+  }
+
+  const exists = catalogs[type].some((item) => item.toLowerCase() === value.toLowerCase())
+  if (!exists) catalogs[type].push(value)
+  if (persist) saveToStorage()
+  return value
+}
+
+function renderCatalogSelect(selectId, type, selectedValue = "") {
+  const select = document.getElementById(selectId)
+  if (!select) return
+  catalogs = normalizeCatalogs(catalogs)
+
+  const options = catalogs[type]
+    .map((item) => {
+      const label = getCatalogLabel(type, item)
+      return `<option value="${label}">${label}</option>`
+    })
+    .join("")
+
+  select.innerHTML = `<option value="">Seleccionar...</option>${options}<option value="__add_new__">+ Agregar nueva opción</option>`
+  if (selectedValue) select.value = selectedValue
+}
+
+function renderProductCatalogSelects(product = {}) {
+  seedCatalogsFromProducts()
+  renderCatalogSelect("product-category", "categories", product.category || "")
+  renderCatalogSelect("product-unit", "units", product.unit || "")
+  renderCatalogSelect("product-location", "locations", product.location || "")
+  renderCatalogSelect("product-supplier", "suppliers", product.supplier || "")
+}
+
+function handleCatalogSelect(type, selectId) {
+  const select = document.getElementById(selectId)
+  if (select.value !== "__add_new__") return
+
+  let newValue = ""
+  if (type === "suppliers") {
+    const name = prompt("Nombre legal del proveedor:")
+    if (!name || !name.trim()) {
+      select.value = ""
+      return
+    }
+    const nit = prompt("NIT del proveedor (opcional):") || ""
+    const phone = prompt("Teléfono del proveedor (opcional):") || ""
+    const contact = prompt("Persona de contacto (opcional):") || ""
+    newValue = addCatalogValue(type, { name: name.trim(), nit: nit.trim(), phone: phone.trim(), contact: contact.trim() })
+  } else if (type === "locations") {
+    const name = prompt("Nombre de la ubicación. Ejemplo: Bodega cemento, Estantería A3, Patio:")
+    if (!name || !name.trim()) {
+      select.value = ""
+      return
+    }
+    newValue = addCatalogValue(type, name.trim())
+  } else {
+    const label = type === "categories" ? "Nombre de la categoría:" : "Nombre de la unidad de medida:"
+    const name = prompt(label)
+    if (!name || !name.trim()) {
+      select.value = ""
+      return
+    }
+    newValue = addCatalogValue(type, name.trim())
+  }
+
+  renderProductCatalogSelects({
+    category: document.getElementById("product-category").value,
+    unit: document.getElementById("product-unit").value,
+    location: document.getElementById("product-location").value,
+    supplier: document.getElementById("product-supplier").value,
+  })
+  select.value = newValue
+}
+
 function showAddProductModal() {
   document.getElementById("product-modal-title").textContent = "Agregar Producto"
   document.getElementById("product-form").reset()
   document.getElementById("product-tax-rate").value = "0.19"
   document.getElementById("product-photo-preview").innerHTML = ""
+  renderProductCatalogSelects()
   document.getElementById("product-modal").classList.add("active")
 }
 
@@ -1255,6 +1387,7 @@ function editProduct(code) {
   if (!product) return
 
   document.getElementById("product-modal-title").textContent = "Editar Producto"
+  renderProductCatalogSelects(product)
   document.getElementById("product-code").value = product.code
   document.getElementById("product-name").value = product.name
   document.getElementById("product-category").value = product.category
@@ -1717,6 +1850,108 @@ function loadCloseRegister() {
   })
 }
 
+function getTodaySales() {
+  return sales.filter((sale) => {
+    const saleDate = new Date(sale.date)
+    const today = new Date()
+    return saleDate.toDateString() === today.toDateString()
+  })
+}
+
+function printCloseRegisterReport(closeData) {
+  const todaySales = getTodaySales()
+  const initialBalance = Number.parseFloat(localStorage.getItem("initialBalance")) || 0
+  const cashSales = todaySales.filter((s) => s.paymentMethod === "cash").reduce((sum, s) => sum + Number(s.total || 0), 0)
+  const cardSales = todaySales
+    .filter((s) => ["card", "debit", "credit_card"].includes(s.paymentMethod))
+    .reduce((sum, s) => sum + Number(s.total || 0), 0)
+  const transferSales = todaySales
+    .filter((s) => s.paymentMethod === "transfer")
+    .reduce((sum, s) => sum + Number(s.total || 0), 0)
+  const nequiSales = todaySales.filter((s) => s.paymentMethod === "nequi").reduce((sum, s) => sum + Number(s.total || 0), 0)
+  const totalSales = todaySales.reduce((sum, s) => sum + Number(s.total || 0), 0)
+  const totalTax = todaySales.reduce((sum, s) => sum + Number(s.tax || 0), 0)
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Cierre de Caja INCOVE</title>
+      <style>
+        body { font-family: Arial, sans-serif; max-width: 820px; margin: 20px auto; padding: 20px; color: #111827; }
+        .header { border-bottom: 3px solid #0f766e; padding-bottom: 14px; margin-bottom: 20px; }
+        .header h1 { margin: 0; color: #0f766e; font-size: 28px; }
+        .header p { margin: 4px 0; color: #374151; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; margin: 18px 0; }
+        .line { display: flex; justify-content: space-between; border-bottom: 1px solid #e5e7eb; padding: 6px 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 18px; }
+        th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+        th { background: #f3f4f6; }
+        .total { font-weight: 700; color: #0f766e; }
+        .footer { margin-top: 24px; border-top: 1px solid #d1d5db; padding-top: 12px; font-size: 13px; color: #4b5563; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>INCOVE</h1>
+        <p><strong>Ingeniería y Construcciones Venecia</strong></p>
+        <p>REPORTE DE CIERRE DE CAJA</p>
+      </div>
+
+      <div class="grid">
+        <div class="line"><span>Fecha:</span><strong>${new Date(closeData.date).toLocaleString("es-CO")}</strong></div>
+        <div class="line"><span>Transacciones:</span><strong>${todaySales.length}</strong></div>
+        <div class="line"><span>Saldo base:</span><strong>$${initialBalance.toFixed(2)}</strong></div>
+        <div class="line"><span>IVA estimado:</span><strong>$${totalTax.toFixed(2)}</strong></div>
+        <div class="line"><span>Efectivo ventas:</span><strong>$${cashSales.toFixed(2)}</strong></div>
+        <div class="line"><span>Efectivo esperado con base:</span><strong>$${closeData.cashExpected.toFixed(2)}</strong></div>
+        <div class="line"><span>Efectivo real:</span><strong>$${closeData.cashActual.toFixed(2)}</strong></div>
+        <div class="line"><span>Diferencia:</span><strong>$${closeData.difference.toFixed(2)}</strong></div>
+        <div class="line"><span>Tarjetas:</span><strong>$${cardSales.toFixed(2)}</strong></div>
+        <div class="line"><span>Transferencias:</span><strong>$${transferSales.toFixed(2)}</strong></div>
+        <div class="line"><span>Nequi:</span><strong>$${nequiSales.toFixed(2)}</strong></div>
+        <div class="line total"><span>Total ventas del día:</span><strong>$${totalSales.toFixed(2)}</strong></div>
+      </div>
+
+      <h3>Detalle de ventas</h3>
+      <table>
+        <thead>
+          <tr><th>#</th><th>Hora</th><th>Método</th><th>Productos</th><th>Total</th></tr>
+        </thead>
+        <tbody>
+          ${
+            todaySales.length
+              ? todaySales
+                  .map(
+                    (sale) => `
+              <tr>
+                <td>${sale.id}</td>
+                <td>${new Date(sale.date).toLocaleTimeString("es-CO")}</td>
+                <td>${sale.paymentMethod || ""}</td>
+                <td>${(sale.items || []).map((item) => `${item.name} x${item.quantity}`).join(", ")}</td>
+                <td>$${Number(sale.total || 0).toFixed(2)}</td>
+              </tr>`,
+                  )
+                  .join("")
+              : '<tr><td colspan="5">No hubo ventas registradas hoy.</td></tr>'
+          }
+        </tbody>
+      </table>
+
+      <div class="footer">
+        <p><strong>Notas:</strong> ${closeData.notes || "Sin notas"}</p>
+        <p>Reporte generado automáticamente al cerrar caja.</p>
+      </div>
+      <script>window.onload = function(){ window.print(); }</script>
+    </body>
+    </html>
+  `
+
+  const printWindow = window.open("", "_blank")
+  printWindow.document.write(html)
+  printWindow.document.close()
+}
+
 function loadQuotes() {
   renderQuoteCart()
   setupQuoteProductSearch()
@@ -1920,8 +2155,9 @@ function closeRegister() {
     localStorage.setItem("closures", JSON.stringify(closures))
 
     exportData()
+    printCloseRegisterReport(closeData)
 
-    alert("Caja cerrada correctamente. Los datos se han exportado automáticamente.")
+    alert("Caja cerrada correctamente. Se exportaron los datos y se generó el reporte imprimible.")
 
     document.getElementById("actual-cash").value = ""
     document.getElementById("close-notes").value = ""
@@ -2293,10 +2529,11 @@ function renderDashboard() {
 console.log("[v0] Sistema INCOVE cargado correctamente")
 
 function startSession() {
-  const initialBalance = Number.parseFloat(document.getElementById("initial-balance").value)
+  const rawInitialBalance = document.getElementById("initial-balance").value
+  const initialBalance = rawInitialBalance === "" ? 0 : Number.parseFloat(rawInitialBalance)
 
-  if (isNaN(initialBalance) || initialBalance < 0) {
-    alert("Por favor ingresa un saldo inicial válido")
+  if (Number.isNaN(initialBalance) || initialBalance < 0) {
+    alert("El saldo inicial no puede ser negativo")
     return
   }
 

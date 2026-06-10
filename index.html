@@ -39,12 +39,12 @@
     <div id="initial-balance-modal" class="modal">
         <div class="modal-content modal-centered">
             <h2>⚙️ Configuración Inicial de Caja</h2>
-            <p class="modal-subtitle">Configure el saldo inicial antes de comenzar las operaciones</p>
+            <p class="modal-subtitle">Puedes iniciar la jornada con saldo base o dejarlo en cero.</p>
             
             <div class="form-group">
-                <label>Saldo Base de Caja (Efectivo Inicial)</label>
+                <label>Saldo Base de Caja (opcional)</label>
                 <input type="number" id="initial-balance" placeholder="0.00" step="0.01" min="0" class="input-large">
-                <small>Ingrese el monto de efectivo con el que inicia la caja</small>
+                <small>Si no ingresas valor, la caja inicia en $0.00</small>
             </div>
             
             <div class="divider"></div>
@@ -616,7 +616,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Categoría:</label>
-                        <input type="text" id="product-category">
+                        <select id="product-category" onchange="handleCatalogSelect('categories', 'product-category')"></select>
                     </div>
                     <div class="form-group">
                         <label>Stock:</label>
@@ -631,7 +631,7 @@
                     </div>
                     <div class="form-group">
                         <label>Unidad de Medida:</label>
-                        <input type="text" id="product-unit" placeholder="ej: pza, kg, m">
+                        <select id="product-unit" onchange="handleCatalogSelect('units', 'product-unit')"></select>
                     </div>
                 </div>
                 <div class="form-row">
@@ -663,11 +663,11 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Ubicación:</label>
-                        <input type="text" id="product-location">
+                        <select id="product-location" onchange="handleCatalogSelect('locations', 'product-location')"></select>
                     </div>
                     <div class="form-group">
                         <label>Proveedor:</label>
-                        <input type="text" id="product-supplier">
+                        <select id="product-supplier" onchange="handleCatalogSelect('suppliers', 'product-supplier')"></select>
                     </div>
                 </div>
                 <div class="form-group">

@@ -51,7 +51,8 @@ El cuerpo para guardar es:
     "clients": [],
     "sales": [],
     "creditSales": [],
-    "quotations": []
+    "quotations": [],
+    "catalogs": {}
   }
 }
 ```
